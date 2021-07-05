@@ -264,30 +264,42 @@ def convert_convtranspose(node, params, layers,
         W = W.transpose(2, 3, 1, 0)
         height, width, n_filters, channels = W.shape
 
-        if has_bias:
-            weights = [W, bias]
-        else:
-            weights = [W]
-
         if n_groups > 1:
             raise AttributeError('Cannot convert ConvTranspose2d with groups != 1')
 
         if dilation > 1:
             raise AttributeError('Cannot convert ConvTranspose2d with dilation_rate != 1')
 
-        conv = keras.layers.Conv2DTranspose(
-            filters=n_filters,
-            kernel_size=(height, width),
-            strides=strides,
-            padding='valid',
-            output_padding=0,
-            weights=weights,
-            use_bias=has_bias,
-            activation=None,
-            dilation_rate=dilation,
-            bias_initializer='zeros', kernel_initializer='zeros',
-            name=keras_name
-        )
+        def target_layer(x, stride_y=strides[0], stride_x=strides[1]):
+            import tensorflow as tf
+            from tensorflow.keras import backend as K
+            data_format = 'NCHW' if K.image_data_format() == 'channels_first' else 'NHWC'
+
+            if data_format == 'NCHW':
+                x = tf.transpose(x, [0, 2, 3, 1])
+
+            batch_size, rows, cols, _ = K.int_shape(x)
+            batch_size = 1
+
+            new_rows = (rows - 1) * strides[0] + height
+            new_cols = (cols - 1) * strides[1] + width
+
+            output_shape = (batch_size, new_rows, new_cols, n_filters)
+
+
+            layer = tf.nn.conv2d_transpose(
+                x, W, output_shape, strides=strides, padding='VALID',
+                data_format='NHWC', dilations=dilation
+            )
+            if has_bias:
+                layer = tf.nn.bias_add(layer, bias,  data_format='NHWC')
+
+            if data_format == 'NCHW':
+                layer = tf.transpose(layer, [0, 3, 1, 2])
+
+            return layer
+
+        conv = keras.layers.Lambda(target_layer)
 
         if 'output_shape' in params and 'pads' not in params:
             logger.debug('!!!!! Paddings will be calculated automatically !!!!!')
