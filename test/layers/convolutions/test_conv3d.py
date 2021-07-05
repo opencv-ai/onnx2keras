@@ -29,18 +29,18 @@ def func(change_ordering, kernel_size, padding, stride, bias, dilation, groups, 
     model = LayerTest(groups * 3, groups, kernel_size=kernel_size, padding=padding,
                       stride=stride, bias=bias, dilation=dilation, groups=groups)
     model.eval()
-    input_np = np.random.uniform(0, 1, (1, 3 * groups, dimension, 224, 224))
+    input_np = np.random.uniform(0, 1, (1, 3 * groups, dimension, 32, 32))
     error = convert_and_test(model, input_np, verbose=False, change_ordering=change_ordering)
 
 
 @pytest.mark.slow
 @pytest.mark.parametrize('change_ordering', [True, False])
-@pytest.mark.parametrize('kernel_size', [1, 3, 5, 7])
-@pytest.mark.parametrize('padding', [0, 1, 3, 5])
+@pytest.mark.parametrize('kernel_size', [1, 3])
+@pytest.mark.parametrize('padding', [0, 1])
 @pytest.mark.parametrize('stride', [1])
 @pytest.mark.parametrize('bias', [True, False])
-@pytest.mark.parametrize('dilation', [1, 2, 3])
-@pytest.mark.parametrize('groups', [1, 2, 3])
+@pytest.mark.parametrize('dilation', [1, 3])
+@pytest.mark.parametrize('groups', [1, 3])
 @pytest.mark.parametrize('dimension', [20, 40])
 # @pytest.mark.parametrize('change_ordering', [True])
 # @pytest.mark.parametrize('kernel_size', [1])
@@ -56,12 +56,12 @@ def test_conv3d_case1(change_ordering, kernel_size, padding, stride, bias, dilat
 
 @pytest.mark.slow
 @pytest.mark.parametrize('change_ordering', [True, False])
-@pytest.mark.parametrize('kernel_size', [1, 3, 5, 7])
-@pytest.mark.parametrize('padding', [0, 1, 3, 5])
-@pytest.mark.parametrize('stride', [1, 2, 3])
+@pytest.mark.parametrize('kernel_size', [1, 3])
+@pytest.mark.parametrize('padding', [0, 1])
+@pytest.mark.parametrize('stride', [1, 3])
 @pytest.mark.parametrize('bias', [True, False])
 @pytest.mark.parametrize('dilation', [1])
-@pytest.mark.parametrize('groups', [1, 2, 3])
+@pytest.mark.parametrize('groups', [1, 3])
 @pytest.mark.parametrize('dimension', [20, 40])
 def test_conv3d_case2(change_ordering, kernel_size, padding, stride, bias, dilation, groups, dimension):
     func(change_ordering, kernel_size, padding, stride, bias, dilation, groups, dimension)

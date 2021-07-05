@@ -17,9 +17,9 @@ class LayerTest(nn.Module):
 
 
 @pytest.mark.parametrize('change_ordering', [True, False])
-@pytest.mark.parametrize('kernel_size', [1, 3, 5, 7])
-@pytest.mark.parametrize('padding', [0, 1, 3])
-@pytest.mark.parametrize('stride', [1, 2, 3, 4])
+@pytest.mark.parametrize('kernel_size', [1, 3])
+@pytest.mark.parametrize('padding', [0, 1])
+@pytest.mark.parametrize('stride', [1, 2])
 def test_maxpool2d(change_ordering, kernel_size, padding, stride):
     if not tf.test.gpu_device_name() and not change_ordering:
         pytest.skip("Skip! Since tensorflow MaxPoolingOp op currently only supports the NHWC tensor format on the CPU")
@@ -30,5 +30,5 @@ def test_maxpool2d(change_ordering, kernel_size, padding, stride):
     model = LayerTest(kernel_size=kernel_size, padding=padding, stride=stride)
     model.eval()
 
-    input_np = np.random.uniform(0, 1, (1, 3, 224, 224))
+    input_np = np.random.uniform(0, 1, (1, 3, 32, 32))
     error = convert_and_test(model, input_np, verbose=False, change_ordering=change_ordering)
