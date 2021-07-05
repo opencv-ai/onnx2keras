@@ -161,6 +161,9 @@ def onnx_to_keras(onnx_model, input_names,
 
         for i, node_input in enumerate(node.input):
             logger.debug('Check input %i (name %s).', i, node_input)
+            if node_input == '':
+                # Optional input, skip checking
+                continue
             if node_input not in layers:
                 logger.debug('The input not found in layers / model inputs.')
 

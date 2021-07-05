@@ -29,10 +29,11 @@ class FClipTest(nn.Module):
     (1, 1.5),
 ])
 @pytest.mark.parametrize('change_ordering', [True, False])
-def test_clip(change_ordering, low, high):
+@pytest.mark.parametrize('opset', [9, 12])
+def test_clip(change_ordering, opset, low, high):
     model = FClipTest(low, high)
     model.eval()
 
     input_np = np.linspace(-2, 2, 3 * 10 * 10).reshape(1, 3, 10, 10)
 
-    error = convert_and_test(model, input_np, verbose=False, change_ordering=change_ordering)
+    error = convert_and_test(model, input_np, verbose=False, change_ordering=change_ordering, opset=opset)
