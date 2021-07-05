@@ -154,27 +154,29 @@ def convert_reshape(node, params, layers, lambda_func, node_name, keras_name):
             if params['change_ordering']:
                 input_0 = ensure_tf_type(layers[node.input[0]], layers[list(layers)[0]], name="%s_const" % keras_name)
 
-                # Fix critical issue with NHWC
-                if input_1[0] is None and input_1[1] == -1:
-                    logger.warning('!!! IMPORTANT INFORMATION !!!')
-                    logger.warning('The target shape if [None, -1] that means flatten.')
-                    logger.warning('But the target ordering is NHWC, so we cant simply perform flatten')
-                    logger.warning('The layer will be converted as lambda with tf.transpose')
-                    logger.warning('---')
+                # Reshape depends on the dim order, so before apply we restore
+                # default Pytorch/ONNX order, reshape and transpose back to target dim order
+                def target_layer(x):
+                    import tensorflow as tf
+                    from tensorflow import keras
+                    from tensorflow.keras import backend as K
+                    data_format = 'NCHW' if K.image_data_format() == 'channels_first' else 'NHWC'
+                    # Conversion schema from channel last to channels first and vice versa
+                    conversions = {
+                        3: ([0, 2, 1], [0, 2, 1]),
+                        4: ([0, 3, 1, 2], [0, 2, 3, 1]),
+                    }
+                    if data_format == 'NHWC':
+                        x = tf.transpose(x, conversions[len(x.shape)][0])
+                    new_shape = input_1
+                    x = keras.backend.reshape(x, new_shape)
+                    if data_format == 'NHWC':
+                        x = tf.transpose(x, conversions[len(x.shape)][1])
+                    return x
 
-                    def target_layer(x):
-                        import tensorflow as tf
-                        x = tf.transpose(x, [0, 3, 1, 2])
-                        return x
-
-                    lambda_layer = keras.layers.Lambda(target_layer, name="%s_CHW" % keras_name)
-                    layers[node_name] = lambda_layer(input_0)
-                    lambda_func[keras_name] = target_layer
-                else:
-                    layers[node_name] = input_0
-
-                reshape = keras.layers.Reshape(np.int32(input_1[1:]), name=keras_name)
-                layers[node_name] = reshape(layers[node_name])
+                lambda_layer = keras.layers.Lambda(target_layer, name=keras_name)
+                layers[node_name] = lambda_layer(input_0)
+                lambda_func[keras_name] = target_layer
 
             else:
                 input_0 = ensure_tf_type(layers[node.input[0]], layers[list(layers)[0]], name="%s_const" % keras_name)
