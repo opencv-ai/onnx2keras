@@ -19,5 +19,5 @@ def test_slice(change_ordering):
     model = LayerTest()
     model.eval()
 
-    input_np = np.random.uniform(0, 1, (1, 3, 224, 224))
+    input_np = np.random.uniform(0, 1, (1, 3, 32, 32))
     error = convert_and_test(model, input_np, verbose=False, change_ordering=change_ordering)

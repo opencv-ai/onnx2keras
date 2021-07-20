@@ -1,5 +1,7 @@
-from tensorflow import keras
 import logging
+import math
+
+from tensorflow import keras
 from .utils import ensure_tf_type, ensure_numpy_type
 
 
@@ -74,14 +76,31 @@ def convert_conv(node, params, layers, lambda_func, node_name, keras_name):
     elif len(W.shape) == 4:  # 2D conv
         logger.debug('2D convolution')
 
-        padding = None
+        padding = 'valid'
         if len(pads) == 2 and (pads[0] > 0 or pads[1] > 0):
-            padding = (pads[0], pads[1])
+            padding = ((pads[0], pads[0]), (pads[1], pads[1]))
         elif len(pads) == 4 and (pads[0] > 0 or pads[1] > 0 or pads[2] > 0 or pads[3] > 0):
             padding = ((pads[0], pads[2]), (pads[1], pads[3]))
 
-        if padding:
-            logger.debug('Paddings exist, add ZeroPadding layer')
+        W = W.transpose(2, 3, 1, 0)
+        height, width, channels_per_group, out_channels = W.shape
+        in_channels = channels_per_group * n_groups
+
+        # Calculate explicit padding with "same"
+        pad_h = dilation * (height - 1) + 1 - strides[0]
+        pad_w = dilation * (width - 1) + 1 - strides[1]
+        same_padding = (
+            (math.floor(pad_h / 2), math.ceil(pad_h / 2)),
+            (math.floor(pad_w / 2), math.ceil(pad_w / 2)),
+        )
+        # Check if we can replace explicit padding with "same"
+        if not isinstance(padding, str) and all(x == y for x, y in zip(same_padding, padding)):
+            padding = 'same'
+
+        if not isinstance(padding, str):
+            # TFlite is not support convolutions with explicit padding - so add
+            # it as a separated layer.
+            logger.debug('Explicit padding exist, add ZeroPadding layer')
             padding_name = keras_name + '_pad'
             padding_layer = keras.layers.ZeroPadding2D(
                 padding=padding,
@@ -89,23 +108,21 @@ def convert_conv(node, params, layers, lambda_func, node_name, keras_name):
                 data_format='channels_first'
             )
             layers[padding_name] = input_0 = padding_layer(input_0)
-
-        W = W.transpose(2, 3, 1, 0)
-        height, width, channels_per_group, out_channels = W.shape
-        in_channels = channels_per_group * n_groups
+            # No padding remain
+            padding = 'valid'
 
         if n_groups == in_channels and n_groups != 1:
             logger.debug('Number of groups is equal to input channels, use DepthWise convolution')
             W = W.transpose(0, 1, 3, 2)
+
             if has_bias:
                 weights = [W, bias]
             else:
                 weights = [W]
-
             conv = keras.layers.DepthwiseConv2D(
                 kernel_size=(height, width),
                 strides=(strides[0], strides[1]),
-                padding='valid',
+                padding=padding,
                 use_bias=has_bias,
                 activation=None,
                 depth_multiplier=1,
@@ -114,13 +131,14 @@ def convert_conv(node, params, layers, lambda_func, node_name, keras_name):
                 bias_initializer='zeros', kernel_initializer='zeros',
                 name=keras_name
             )
+
             layers[node_name] = conv(input_0)
 
         elif n_groups != 1:
             logger.debug('Number of groups more than 1, but less than number of in_channel, use group convolution')
 
             # Example from https://kratzert.github.io/2017/02/24/finetuning-alexnet-with-tensorflow.html
-            def target_layer(x, groups=n_groups, stride_y=strides[0], stride_x=strides[1]):
+            def target_layer(x, groups=n_groups, stride_y=strides[0], stride_x=strides[1], padding=padding):
                 import tensorflow as tf
                 from tensorflow.keras import backend as K
                 data_format = 'NCHW' if K.image_data_format() == 'channels_first' else 'NHWC'
@@ -128,14 +146,17 @@ def convert_conv(node, params, layers, lambda_func, node_name, keras_name):
                 if data_format == 'NCHW':
                     x = tf.transpose(x, [0, 2, 3, 1])
 
+                if isinstance(padding, str):
+                    padding = padding.upper()
+
                 def convolve_lambda_biased(i, k, b):
                     import tensorflow as tf
-                    conv = tf.nn.conv2d(i, k, strides=[1, stride_y, stride_x, 1], dilations=[1, dilation, dilation, 1], padding='VALID', data_format='NHWC')
+                    conv = tf.nn.conv2d(i, k, strides=[1, stride_y, stride_x, 1], dilations=[1, dilation, dilation, 1], padding=padding, data_format='NHWC')
                     return tf.nn.bias_add(conv, b,  data_format='NHWC')
 
                 def convolve_lambda(i, k):
                     import tensorflow as tf
-                    return tf.nn.conv2d(i, k, strides=[1, stride_y, stride_x, 1], dilations=[1, dilation, dilation, 1], padding='VALID', data_format='NHWC')
+                    return tf.nn.conv2d(i, k, strides=[1, stride_y, stride_x, 1], dilations=[1, dilation, dilation, 1], padding=padding, data_format='NHWC')
 
                 input_groups = tf.split(axis=3, num_or_size_splits=groups, value=x)
                 weight_groups = tf.split(axis=3, num_or_size_splits=groups, value=W)
@@ -165,7 +186,7 @@ def convert_conv(node, params, layers, lambda_func, node_name, keras_name):
                 filters=out_channels,
                 kernel_size=(height, width),
                 strides=(strides[0], strides[1]),
-                padding='valid',
+                padding=padding,
                 weights=weights,
                 use_bias=has_bias,
                 activation=None,
@@ -264,30 +285,42 @@ def convert_convtranspose(node, params, layers,
         W = W.transpose(2, 3, 1, 0)
         height, width, n_filters, channels = W.shape
 
-        if has_bias:
-            weights = [W, bias]
-        else:
-            weights = [W]
-
         if n_groups > 1:
             raise AttributeError('Cannot convert ConvTranspose2d with groups != 1')
 
         if dilation > 1:
             raise AttributeError('Cannot convert ConvTranspose2d with dilation_rate != 1')
 
-        conv = keras.layers.Conv2DTranspose(
-            filters=n_filters,
-            kernel_size=(height, width),
-            strides=strides,
-            padding='valid',
-            output_padding=0,
-            weights=weights,
-            use_bias=has_bias,
-            activation=None,
-            dilation_rate=dilation,
-            bias_initializer='zeros', kernel_initializer='zeros',
-            name=keras_name
-        )
+        def target_layer(x, stride_y=strides[0], stride_x=strides[1]):
+            import tensorflow as tf
+            from tensorflow.keras import backend as K
+            data_format = 'NCHW' if K.image_data_format() == 'channels_first' else 'NHWC'
+
+            if data_format == 'NCHW':
+                x = tf.transpose(x, [0, 2, 3, 1])
+
+            batch_size, rows, cols, _ = K.int_shape(x)
+            batch_size = 1
+
+            new_rows = (rows - 1) * strides[0] + height
+            new_cols = (cols - 1) * strides[1] + width
+
+            output_shape = (batch_size, new_rows, new_cols, n_filters)
+
+
+            layer = tf.nn.conv2d_transpose(
+                x, W, output_shape, strides=strides, padding='VALID',
+                data_format='NHWC', dilations=dilation
+            )
+            if has_bias:
+                layer = tf.nn.bias_add(layer, bias,  data_format='NHWC')
+
+            if data_format == 'NCHW':
+                layer = tf.transpose(layer, [0, 3, 1, 2])
+
+            return layer
+
+        conv = keras.layers.Lambda(target_layer)
 
         if 'output_shape' in params and 'pads' not in params:
             logger.debug('!!!!! Paddings will be calculated automatically !!!!!')

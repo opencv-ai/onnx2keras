@@ -151,12 +151,16 @@ def convert_global_avg_pool(node, params, layers, lambda_func, node_name, keras_
 
     def target_layer(x):
         from tensorflow import keras
-        return keras.backend.expand_dims(x)
+        from tensorflow.keras import backend as K
+        data_format = 'NCHW' if K.image_data_format() == 'channels_first' else 'NHWC'
+        channels = keras.backend.int_shape(x)[1]
+        if data_format == 'NHWC':
+            new_shape = (-1, 1, 1, channels)
+        else:
+            new_shape = (-1, channels, 1, 1)
+        return keras.backend.reshape(x, new_shape)
 
-    logger.debug('Now expand dimensions twice.')
+    logger.debug('Now expand dimensions.')
     lambda_layer1 = keras.layers.Lambda(target_layer, name=keras_name + '_EXPAND1')
-    lambda_layer2 = keras.layers.Lambda(target_layer, name=keras_name + '_EXPAND2')
-    input_0 = lambda_layer1(input_0)  # double expand dims
-    layers[node_name] = lambda_layer2(input_0)
+    layers[node_name] = lambda_layer1(input_0)
     lambda_func[keras_name + '_EXPAND1'] = target_layer
-    lambda_func[keras_name + '_EXPAND2'] = target_layer

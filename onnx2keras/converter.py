@@ -161,6 +161,9 @@ def onnx_to_keras(onnx_model, input_names,
 
         for i, node_input in enumerate(node.input):
             logger.debug('Check input %i (name %s).', i, node_input)
+            if node_input == '':
+                # Optional input, skip checking
+                continue
             if node_input not in layers:
                 logger.debug('The input not found in layers / model inputs.')
 
@@ -198,10 +201,17 @@ def onnx_to_keras(onnx_model, input_names,
     model = keras.models.Model(inputs=keras_inputs, outputs=keras_outputs)
 
     if change_ordering:
+        # mapping for change axes order for different input axes count
         change_ord_axes_map = {
-            3: 2,
-            1: 3,
-            -1: 1
+            4: {
+                3: 2,
+                1: 3,
+                -1: 1
+            },
+            3: {
+                1: 2,
+                -1: 1
+            },
         }
 
         import numpy as np
@@ -236,7 +246,13 @@ def onnx_to_keras(onnx_model, input_names,
                 # BatchNorm wrap axis with ListWrapper instead single INT value
                 if isinstance(axis, (tuple, list)):
                     axis = axis[0]
-                layer['config']['axis'] = change_ord_axes_map.get(axis, layer['config']['axis'])
+                # Retrieve input axes count
+                layer_obj = next(x for x in model.layers if x.name == layer['config']['name'])
+                input_shape = layer_obj.input_shape
+                if isinstance(input_shape[0], tuple):
+                    input_shape = input_shape[0]
+                axes_map = change_ord_axes_map[len(input_shape)]
+                layer['config']['axis'] = axes_map.get(axis, layer['config']['axis'])
 
         for layer in conf['layers']:
             if 'function' in layer['config'] and layer['config']['function'][1] is not None:

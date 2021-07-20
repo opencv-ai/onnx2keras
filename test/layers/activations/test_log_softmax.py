@@ -33,7 +33,7 @@ class FLogSoftmax(nn.Module):
 
 
 @pytest.mark.parametrize('change_ordering', [False])
-@pytest.mark.parametrize('dim', [0, 1, 2, 3])
+@pytest.mark.parametrize('dim', [1, 2, 3])
 def test_f_logsoftmax(change_ordering, dim):
     model = FLogSoftmax(dim)
     model.eval()

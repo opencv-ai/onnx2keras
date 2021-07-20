@@ -28,13 +28,28 @@ def convert_clip(node, params, layers, lambda_func, node_name, keras_name):
 
     input_0 = ensure_tf_type(layers[node.input[0]], name="%s_const" % keras_name)
 
-    if params['min'] == 0:
-        logger.debug("Using ReLU({0}) instead of clip".format(params['max']))
-        layer = keras.layers.ReLU(max_value=params['max'], name=keras_name)
+
+    if len(node.input) > 1:
+        # Since 11 opset min and max are optional inputs
+        vmin, vmax = [layers.get(attr) for attr in node.input[1:]]
     else:
-        def target_layer(x, vmin=params['min'], vmax=params['max']):
+        vmin = params.get('min')
+        vmax = params.get('max')
+
+    if vmin == 0:
+        logger.debug("Using ReLU({0}) instead of clip".format(vmax))
+        layer = keras.layers.ReLU(max_value=vmax, name=keras_name)
+    else:
+        def target_layer(x):
             import tensorflow as tf
-            return tf.clip_by_value(x, vmin, vmax)
+            if vmin is None:
+                x = tf.keras.backend.minimum(x, vmax)
+            elif vmax is None:
+                x = tf.keras.backend.maximum(x, vmin)
+            else:
+                x = tf.clip_by_value(x, vmin, vmax)
+            return x
+
         layer = keras.layers.Lambda(target_layer, name=keras_name)
         lambda_func[keras_name] = target_layer
 

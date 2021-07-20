@@ -1,0 +1,19 @@
+image: tensorflow/tensorflow:2.5.0
+
+stages:
+  - testing
+
+before_script:
+  - python3 -m pip install .
+  - python3 -m pip install -r test/requirements.txt
+
+UnitTest:
+  stage: testing
+  script:
+    - pytest test/ -v --junitxml=unit_test_report.xml -p no:warnings -m "not slow"
+  artifacts:
+    reports:
+      junit:
+        - unit_test_report.xml
+  tags:
+  - ubuntu16
