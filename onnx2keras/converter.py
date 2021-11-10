@@ -274,12 +274,17 @@ def onnx_to_keras(
                 axes_map = change_ord_axes_map[len(input_shape)]
                 layer["config"]["axis"] = axes_map.get(axis, layer["config"]["axis"])
 
-        for layer in conf["layers"]:
-            if (
-                "function" in layer["config"]
-                and layer["config"]["function"][1] is not None
-            ):
-                kerasf = list(layer["config"]["function"])
+        for layer in conf['layers']:
+            if 'function' in layer['config'] and layer['config']['function'][1] is not None:
+                kerasf = layer['config']['function']
+                # function shouldn't be modified without any checks,
+                # because it can reference a simple operator name in TensorFlow e.g. `math.multiply`
+                # Without this check this name is transformed to:
+                # `('m', ('a',), 't', 'h', '.', 'm', 'u', 'l', 't', 'i', 'p', 'l', 'y')`
+                # and obviously can't be registered as TF symbol
+                if not isinstance(kerasf, (tuple, list)):
+                    continue
+                kerasf = list(kerasf)
                 dargs = list(kerasf[1])
                 func = lambda_funcs.get(layer["name"])
 

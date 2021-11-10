@@ -1,6 +1,6 @@
-import logging
-
+import tensorflow as tf
 from tensorflow import keras
+import logging
 
 from .utils import ensure_numpy_type, ensure_tf_type
 
@@ -83,6 +83,41 @@ def convert_sigmoid(node, params, layers, lambda_func, node_name, keras_name):
 
     sigmoid = keras.layers.Activation("sigmoid", name=keras_name)
     layers[node_name] = sigmoid(input_0)
+
+
+def convert_hard_sigmoid(node, params, layers, lambda_func, node_name, keras_name):
+    """
+    Convert HardSigmoid activation layer
+    :param node: current operation node
+    :param params: operation attributes
+    :param layers: available keras layers
+    :param lambda_func: function for keras Lambda layer
+    :param node_name: internal converter name
+    :param keras_name: resulting layer name
+    :return: None
+    """
+
+    # Default values are taken from the
+    # https://github.com/onnx/onnx/blob/master/docs/Operators.md#hardsigmoid
+    ONNX_HARD_SIGMOID_DEFAULT_ALPHA = 0.2
+    ONNX_HARD_SIGMOID_DEFAULT_BETA = 0.5
+
+    if len(node.input) != 1:
+        assert AttributeError('More than 1 input for an activation layer.')
+
+    input_0 = ensure_tf_type(layers[node.input[0]], name=f"{keras_name}_const")
+
+    alpha = params.get("alpha", ONNX_HARD_SIGMOID_DEFAULT_ALPHA)
+    assert alpha != 0., "Alpha can't be zero - it doesn't make sense"
+    beta = params.get("beta", ONNX_HARD_SIGMOID_DEFAULT_BETA)
+
+    inv_alpha = 1. / alpha
+    inv_beta = beta * inv_alpha
+
+    # This composition is built to achive ReLU6 attached to the previous convolution
+    # and 1 multiplication that scales result of the ReLU
+    relu = keras.layers.ReLU(max_value=inv_alpha)
+    layers[node_name] = alpha * relu(input_0 + inv_beta)
 
 
 def convert_tanh(node, params, layers, lambda_func, node_name, keras_name):
