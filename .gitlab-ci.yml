@@ -16,4 +16,4 @@ UnitTest:
       junit:
         - unit_test_report.xml
   tags:
-  - ubuntu16
+  - ubuntu
