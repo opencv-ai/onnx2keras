@@ -171,8 +171,10 @@ def convert_softmax(node, params, layers, lambda_func, node_name, keras_name):
     :param keras_name: resulting layer name
     :return: None
     """
-    if params["change_ordering"]:
-        raise NotImplementedError("change_ordering for softmax is not implemented")
+    logger = logging.getLogger('onnx2keras.softmax')
+
+    if params['change_ordering']:
+        logger.warning("change_ordering for softmax is not implemented")
     if len(node.input) != 1:
         assert AttributeError("More than 1 input for an activation layer.")
 
