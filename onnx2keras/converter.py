@@ -90,11 +90,14 @@ def onnx_to_keras(
         try:
             if len(onnx_w.ListFields()) < 4:
                 onnx_extracted_weights_name = onnx_w.ListFields()[1][1]
+                onnx_extracted_weights_name = onnx_extracted_weights_name.split('::')[-1]
             else:
                 onnx_extracted_weights_name = onnx_w.ListFields()[2][1]
+                onnx_extracted_weights_name = onnx_extracted_weights_name.split('::')[-1]
             weights[onnx_extracted_weights_name] = numpy_helper.to_array(onnx_w)
         except:
             onnx_extracted_weights_name = onnx_w.ListFields()[3][1]
+            onnx_extracted_weights_name = onnx_extracted_weights_name.split('::')[-1]
             weights[onnx_extracted_weights_name] = numpy_helper.to_array(onnx_w)
 
         logger.debug(
@@ -139,10 +142,14 @@ def onnx_to_keras(
         node_params["name_policy"] = name_policy
 
         node_name = str(node.output[0])
+        node_name = node_name.split('::')[-1]
+
         keras_names = []
-        for output_index, output in enumerate(node.output):
-            if name_policy == "short":
-                keras_name = keras_name_i = str(output)[:8]
+        for output_index in range(len(node.output)):
+            node.output[output_index] = node.output[output_index].split('::')[-1]
+            node_output = node.output[output_index]
+            if name_policy == 'short':
+                keras_name = keras_name_i = str(node_output)[:8]
                 suffix = 1
                 while keras_name_i in node_names:
                     keras_name_i = keras_name + "_" + str(suffix)
@@ -156,7 +163,7 @@ def onnx_to_keras(
                 )
                 keras_names.append("LAYER_%s" % postfix)
             else:
-                keras_names.append(output)
+                keras_names.append(node_output)
 
         if len(node.output) != 1:
             logger.warning("Trying to convert multi-output node")
@@ -178,9 +185,11 @@ def onnx_to_keras(
         if len(node.input) == 0 and node_type != "Constant":
             raise AttributeError("Operation doesn't have an input. Aborting.")
 
-        for i, node_input in enumerate(node.input):
-            logger.debug("Check input %i (name %s).", i, node_input)
-            if node_input == "":
+        for input_index in range(len(node.input)):
+            node.input[input_index] = node.input[input_index].split('::')[-1]
+            node_input = node.input[input_index]
+            logger.debug('Check input %i (name %s).', input_index, node_input)
+            if node_input == '':
                 # Optional input, skip checking
                 continue
             if node_input not in layers:
