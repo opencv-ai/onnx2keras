@@ -1,10 +1,10 @@
+from test.utils import convert_and_test
+
 import numpy as np
+import pytest
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-import pytest
-
-from test.utils import convert_and_test
 
 
 class LayerTest(nn.Module):
@@ -18,8 +18,8 @@ class LayerTest(nn.Module):
 
 
 @pytest.mark.repeat(10)
-@pytest.mark.parametrize('change_ordering', [True, False])
-@pytest.mark.parametrize('bias', [True, False])
+@pytest.mark.parametrize("change_ordering", [True, False])
+@pytest.mark.parametrize("bias", [True, False])
 def test_linear(change_ordering, bias):
     ins = np.random.choice([1, 3, 7, 128])
 
@@ -27,4 +27,6 @@ def test_linear(change_ordering, bias):
     model.eval()
 
     input_np = np.random.uniform(0, 1, (1, ins))
-    error = convert_and_test(model, input_np, verbose=False, change_ordering=change_ordering)
+    error = convert_and_test(
+        model, input_np, verbose=False, change_ordering=change_ordering
+    )

@@ -20,7 +20,7 @@ def ensure_numpy_type(obj):
     if is_numpy(obj):
         return obj
     else:
-        raise AttributeError('Not a numpy type.')
+        raise AttributeError("Not a numpy type.")
 
 
 def ensure_tf_type(obj, fake_input_layer=None, name=None):
@@ -37,6 +37,7 @@ def ensure_tf_type(obj, fake_input_layer=None, name=None):
         def target_layer(_, inp=obj, dtype=obj.dtype.name):
             import numpy as np
             import tensorflow as tf
+
             if not isinstance(inp, (np.ndarray, np.generic)):
                 inp = np.array(inp, dtype=dtype)
             return tf.constant(inp, dtype=inp.dtype)
@@ -47,7 +48,9 @@ def ensure_tf_type(obj, fake_input_layer=None, name=None):
         return obj
 
 
-def check_torch_keras_error(model, k_model, input_np, epsilon=1e-5, change_ordering=False):
+def check_torch_keras_error(
+    model, k_model, input_np, epsilon=1e-5, change_ordering=False
+):
     """
     Check difference between Torch and Keras models
     :param model: torch model
@@ -57,14 +60,13 @@ def check_torch_keras_error(model, k_model, input_np, epsilon=1e-5, change_order
     :param change_ordering: change ordering for keras input
     :return: actual difference
     """
-    from torch.autograd import Variable
     import torch
+    from torch.autograd import Variable
 
     initial_keras_image_format = keras.backend.image_data_format()
 
     if isinstance(input_np, np.ndarray):
         input_np = [input_np.astype(np.float32)]
-
 
     input_var = [Variable(torch.FloatTensor(i)) for i in input_np]
     pytorch_output = model(*input_var)

@@ -1,9 +1,9 @@
+from test.utils import convert_and_test
+
 import numpy as np
-import torch.nn as nn
 import pytest
 import tensorflow as tf
-
-from test.utils import convert_and_test
+import torch.nn as nn
 
 
 class LayerTest(nn.Module):
@@ -16,12 +16,16 @@ class LayerTest(nn.Module):
         return x
 
 
-@pytest.mark.parametrize('change_ordering', [True, False])
+@pytest.mark.parametrize("change_ordering", [True, False])
 def test_global_avgpool2d(change_ordering):
     if not tf.test.gpu_device_name() and not change_ordering:
-        pytest.skip("Skip! Since tensorflow AvgPoolingOp op currently only supports the NHWC tensor format on the CPU")
+        pytest.skip(
+            "Skip! Since tensorflow AvgPoolingOp op currently only supports the NHWC tensor format on the CPU"
+        )
     model = LayerTest()
     model.eval()
 
     input_np = np.random.uniform(0, 1, (1, 3, 32, 32))
-    error = convert_and_test(model, input_np, verbose=False, change_ordering=change_ordering)
+    error = convert_and_test(
+        model, input_np, verbose=False, change_ordering=change_ordering
+    )
