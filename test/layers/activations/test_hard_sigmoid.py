@@ -1,10 +1,10 @@
-import torch
-from torch.nn import functional as F
+from test.utils import convert_and_test
+
+import numpy as np
 import onnx
 import pytest
-import numpy as np
-
-from test.utils import convert_and_test
+import torch
+from torch.nn import functional as F
 
 
 class LayerHardSigmoid(torch.nn.Module):
@@ -24,7 +24,7 @@ class FHardSigmoid(torch.nn.Module):
         return F.hardsigmoid(x)
 
 
-@pytest.mark.parametrize('hard_sigmoid_class', [LayerHardSigmoid, FHardSigmoid])
+@pytest.mark.parametrize("hard_sigmoid_class", [LayerHardSigmoid, FHardSigmoid])
 def test_layer_hard_sigmoid(hard_sigmoid_class):
     model = hard_sigmoid_class()
     model.eval()

@@ -90,14 +90,18 @@ def onnx_to_keras(
         try:
             if len(onnx_w.ListFields()) < 4:
                 onnx_extracted_weights_name = onnx_w.ListFields()[1][1]
-                onnx_extracted_weights_name = onnx_extracted_weights_name.split('::')[-1]
+                onnx_extracted_weights_name = onnx_extracted_weights_name.split("::")[
+                    -1
+                ]
             else:
                 onnx_extracted_weights_name = onnx_w.ListFields()[2][1]
-                onnx_extracted_weights_name = onnx_extracted_weights_name.split('::')[-1]
+                onnx_extracted_weights_name = onnx_extracted_weights_name.split("::")[
+                    -1
+                ]
             weights[onnx_extracted_weights_name] = numpy_helper.to_array(onnx_w)
         except:
             onnx_extracted_weights_name = onnx_w.ListFields()[3][1]
-            onnx_extracted_weights_name = onnx_extracted_weights_name.split('::')[-1]
+            onnx_extracted_weights_name = onnx_extracted_weights_name.split("::")[-1]
             weights[onnx_extracted_weights_name] = numpy_helper.to_array(onnx_w)
 
         logger.debug(
@@ -142,13 +146,13 @@ def onnx_to_keras(
         node_params["name_policy"] = name_policy
 
         node_name = str(node.output[0])
-        node_name = node_name.split('::')[-1]
+        node_name = node_name.split("::")[-1]
 
         keras_names = []
         for output_index in range(len(node.output)):
-            node.output[output_index] = node.output[output_index].split('::')[-1]
+            node.output[output_index] = node.output[output_index].split("::")[-1]
             node_output = node.output[output_index]
-            if name_policy == 'short':
+            if name_policy == "short":
                 keras_name = keras_name_i = str(node_output)[:8]
                 suffix = 1
                 while keras_name_i in node_names:
@@ -186,10 +190,10 @@ def onnx_to_keras(
             raise AttributeError("Operation doesn't have an input. Aborting.")
 
         for input_index in range(len(node.input)):
-            node.input[input_index] = node.input[input_index].split('::')[-1]
+            node.input[input_index] = node.input[input_index].split("::")[-1]
             node_input = node.input[input_index]
-            logger.debug('Check input %i (name %s).', input_index, node_input)
-            if node_input == '':
+            logger.debug("Check input %i (name %s).", input_index, node_input)
+            if node_input == "":
                 # Optional input, skip checking
                 continue
             if node_input not in layers:
@@ -283,9 +287,12 @@ def onnx_to_keras(
                 axes_map = change_ord_axes_map[len(input_shape)]
                 layer["config"]["axis"] = axes_map.get(axis, layer["config"]["axis"])
 
-        for layer in conf['layers']:
-            if 'function' in layer['config'] and layer['config']['function'][1] is not None:
-                kerasf = layer['config']['function']
+        for layer in conf["layers"]:
+            if (
+                "function" in layer["config"]
+                and layer["config"]["function"][1] is not None
+            ):
+                kerasf = layer["config"]["function"]
                 # function shouldn't be modified without any checks,
                 # because it can reference a simple operator name in TensorFlow e.g. `math.multiply`
                 # Without this check this name is transformed to:

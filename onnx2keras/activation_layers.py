@@ -1,6 +1,7 @@
+import logging
+
 import tensorflow as tf
 from tensorflow import keras
-import logging
 
 from .utils import ensure_numpy_type, ensure_tf_type
 
@@ -103,15 +104,15 @@ def convert_hard_sigmoid(node, params, layers, lambda_func, node_name, keras_nam
     ONNX_HARD_SIGMOID_DEFAULT_BETA = 0.5
 
     if len(node.input) != 1:
-        assert AttributeError('More than 1 input for an activation layer.')
+        assert AttributeError("More than 1 input for an activation layer.")
 
     input_0 = ensure_tf_type(layers[node.input[0]], name=f"{keras_name}_const")
 
     alpha = params.get("alpha", ONNX_HARD_SIGMOID_DEFAULT_ALPHA)
-    assert alpha != 0., "Alpha can't be zero - it doesn't make sense"
+    assert alpha != 0.0, "Alpha can't be zero - it doesn't make sense"
     beta = params.get("beta", ONNX_HARD_SIGMOID_DEFAULT_BETA)
 
-    inv_alpha = 1. / alpha
+    inv_alpha = 1.0 / alpha
     inv_beta = beta * inv_alpha
 
     # This composition is built to achive ReLU6 attached to the previous convolution
@@ -171,9 +172,9 @@ def convert_softmax(node, params, layers, lambda_func, node_name, keras_name):
     :param keras_name: resulting layer name
     :return: None
     """
-    logger = logging.getLogger('onnx2keras.softmax')
+    logger = logging.getLogger("onnx2keras.softmax")
 
-    if params['change_ordering']:
+    if params["change_ordering"]:
         logger.warning("change_ordering for softmax is not implemented")
     if len(node.input) != 1:
         assert AttributeError("More than 1 input for an activation layer.")
